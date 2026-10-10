@@ -3,99 +3,164 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mukammal Telegram Alarm & Budilnik</title>
+    <title>Telegram Alarm & Budilnik Pro</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         body {
-            background-color: #0b0f19;
-            color: white;
-            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #090d16, #111827);
+            color: #f3f4f6;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             text-align: center;
-            padding: 20px;
+            padding: 15px;
             margin: 0;
         }
         .container {
-            max-width: 500px;
+            max-width: 480px;
             margin: 0 auto;
-            background: #1e293b;
-            padding: 25px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            background: rgba(30, 41, 59, 0.9);
+            backdrop-filter: blur(12px);
+            padding: 20px;
+            border-radius: 24px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.7);
+            border: 1px solid rgba(255,255,255,0.08);
         }
-        h1 { font-size: 22px; margin-bottom: 5px; color: #38bdf8; }
-        .clock { font-size: 42px; font-weight: bold; margin: 15px 0; color: #facc15; }
-        .status { padding: 8px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; font-size: 14px; }
-        .connected { background: #065f46; color: #34d399; }
-        .disconnected { background: #7f1d1d; color: #f87171; }
+        h1 { font-size: 20px; margin-bottom: 5px; color: #38bdf8; text-shadow: 0 0 10px rgba(56,189,248,0.3); }
+        .clock { font-size: 38px; font-weight: bold; margin: 10px 0; color: #fbbf24; letter-spacing: 2px; }
+        .status { padding: 6px 14px; border-radius: 20px; margin-bottom: 12px; font-weight: 600; font-size: 13px; display: inline-block; }
+        .connected { background: rgba(6, 95, 70, 0.7); color: #34d399; border: 1px solid #059669; }
+        .disconnected { background: rgba(127, 29, 29, 0.7); color: #f87171; border: 1px solid #dc2626; }
         
-        .section { background: #334155; padding: 12px; border-radius: 12px; margin-top: 15px; text-align: left; }
-        .section h3 { margin: 0 0 8px 0; font-size: 15px; color: #38bdf8; }
+        .section { background: rgba(15, 23, 42, 0.7); padding: 15px; border-radius: 16px; margin-top: 12px; text-align: left; border: 1px solid rgba(255,255,255,0.04); }
+        .section h3 { margin: 0 0 8px 0; font-size: 14px; color: #38bdf8; }
         
         input, select {
-            width: calc(100% - 16px);
-            padding: 10px;
-            background: #1e293b;
-            border: 1px solid #475569;
+            width: calc(100% - 20px);
+            padding: 10px 12px;
+            background: #0b0f19;
+            border: 1px solid #334155;
             color: white;
-            border-radius: 8px;
+            border-radius: 10px;
             margin-bottom: 8px;
+            font-size: 14px;
         }
         
         .btn {
-            background: #ef4444;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
             color: white;
             border: none;
             padding: 12px;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: bold;
-            border-radius: 8px;
+            border-radius: 12px;
             cursor: pointer;
             width: 100%;
-            margin-top: 8px;
+            margin-top: 6px;
             transition: 0.2s;
+            box-shadow: 0 4px 12px rgba(239,68,68,0.4);
         }
-        .btn:hover { background: #dc2626; }
-        .btn-blue { background: #3b82f6; }
-        .btn-blue:hover { background: #2563eb; }
-        .btn-green { background: #10b981; }
+        .btn-blue { background: linear-gradient(135deg, #3b82f6, #2563eb); box-shadow: 0 4px 12px rgba(59,130,246,0.4); }
+        .btn-green { background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 12px rgba(16,185,129,0.4); }
         
-        .channel-list { max-height: 100px; overflow-y: auto; font-size: 13px; }
-        .channel-item { display: flex; justify-content: space-between; background: #1e293b; padding: 5px 10px; margin-bottom: 4px; border-radius: 5px; align-items: center; }
-        .del-btn { background: #ef4444; border: none; color: white; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .channel-list { max-height: 90px; overflow-y: auto; font-size: 12px; }
+        .channel-item { display: flex; justify-content: space-between; background: #1e293b; padding: 6px 10px; margin-bottom: 4px; border-radius: 8px; align-items: center; }
+        .del-btn { background: #ef4444; border: none; color: white; padding: 2px 8px; border-radius: 6px; cursor: pointer; font-size: 11px; }
 
-        .alert-box { background: #1e293b; padding: 10px; border-radius: 8px; margin-top: 10px; max-height: 120px; overflow-y: auto; font-size: 13px; text-align: left; }
+        .alert-box { background: #0b0f19; padding: 10px; border-radius: 10px; margin-top: 8px; max-height: 100px; overflow-y: auto; font-size: 12px; text-align: left; border: 1px solid #334155; }
+        
+        #popupModal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(239, 68, 68, 0.95);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            padding: 20px;
+            animation: pulseBg 0.5s infinite alternate;
+        }
+        @keyframes pulseBg {
+            from { background: rgba(239, 68, 68, 0.9); }
+            to { background: rgba(185, 28, 28, 1); }
+        }
+        .popup-content {
+            background: #0f172a;
+            padding: 25px;
+            border-radius: 20px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+            border: 2px solid white;
+        }
     </style>
 </head>
-<body>
+<body onclick="unlockAudio()">
+
+    <div id="popupModal">
+        <div class="popup-content">
+            <h2 style="color: #ef4444; margin-top: 0;">🚨 TELEGRAM ALARM!</h2>
+            <p id="popupText" style="font-size: 14px; text-align: left; background: #1e293b; padding: 10px; border-radius: 8px; max-height: 150px; overflow-y: auto;"></p>
+            <button class="btn" style="background: #ef4444; font-size: 18px; padding: 15px;" onclick="stopAlarm()">SIGNALNI TO'XTATISH</button>
+        </div>
+    </div>
 
     <div class="container" id="mainContainer">
-        <h1>🚨 Telegram Alarm & Budilnik</h1>
-        <div id="status" class="status disconnected">Ulanmoqda...</div>
+        <h1>🚨 Telegram Alarm & Budilnik Pro</h1>
+        <div id="status" class="status disconnected">Tekshirilmoqda...</div>
         
         <div class="clock" id="clock">00:00:00</div>
         
-        <button class="btn" onclick="stopAlarm()">SIGNALNI O'CHIRISH (STOP)</button>
-        <button class="btn btn-blue" onclick="testAlarm()">Test Sirena (Sinov)</button>
+        <button class="btn" onclick="stopAlarm()">🛑 SIGNALNI O'CHIRISH</button>
+        <button class="btn btn-blue" onclick="testAlarm()">🔔 Sinov Sirena</button>
 
-        <!-- Oddiy Budilnik Sozlamasi -->
+        <!-- Audio / MP3 Sozlamasi -->
         <div class="section">
-            <h3>⏰ Shaxsiy Budilnik Qo'shish</h3>
+            <h3>🎵 Ovoz / MP3 Musiqa Sozlash</h3>
+            <label style="font-size: 12px; color: #94a3b8;">Ovoz turini tanlang:</label>
+            <select id="alarmSoundType" onchange="saveSoundChoice()">
+                <option value="siren">O'ta Baland Siren (Tezkor)</option>
+                <option value="custom">O'z MP3 Faylimni Yuklash</option>
+            </select>
+            <div id="mp3UploadDiv" style="display: none; margin-top: 6px;">
+                <input type="file" id="mp3FileInput" accept="audio/mp3" onchange="handleMp3Upload(event)">
+                <div style="font-size: 11px; color: #34d399;" id="mp3Status">MP3 fayl tanlanmagan</div>
+            </div>
+        </div>
+
+        <!-- Telegram Ulanish Bo'limi -->
+        <div class="section" id="authSection">
+            <h3>📱 Telegram Akkauntni Ulash (Maks 3 ta)</h3>
+            <div id="accountCount" style="font-size: 12px; color: #38bdf8; margin-bottom: 6px;">Ulangan raqamlar: 0 / 3</div>
+            <div id="stepPhone">
+                <input type="text" id="phoneInput" placeholder="Telefon raqam (+998...)">
+                <button class="btn btn-green" onclick="sendPhone()">SMS Kodni Yuborish</button>
+            </div>
+            <div id="stepCode" style="display: none;">
+                <input type="text" id="codeInput" placeholder="Telegramdan kelgan kod">
+                <input type="password" id="passwordInput" placeholder="2-bosqichli parol (agar bo'lsa)">
+                <button class="btn btn-green" onclick="sendCode()">Tasdiqlash va Qo'shish</button>
+            </div>
+        </div>
+
+        <!-- Budilnik -->
+        <div class="section">
+            <h3>⏰ Shaxsiy Budilnik</h3>
             <input type="time" id="alarmTime">
             <button class="btn btn-green" onclick="setPersonalAlarm()">Budilnikni Yoqish</button>
-            <div id="alarmStatus" style="font-size: 12px; margin-top: 5px; color: #34d399;"></div>
+            <div id="alarmStatus" style="font-size: 11px; margin-top: 4px; color: #34d399;"></div>
         </div>
 
         <!-- Kanal Boshqaruvi -->
         <div class="section">
-            <h3>📡 Monitored Kanallar</h3>
-            <input type="text" id="newChannelId" placeholder="Kanal ID kiriting (masalan: -100...)">
+            <h3>📡 Kuzatiladigan Kanallar</h3>
+            <input type="text" id="newChannelId" placeholder="Kanal ID (-100...)">
             <button class="btn btn-blue" onclick="addChannel()">Kanal Qo'shish</button>
             <div class="channel-list" id="channelList">yuklanmoqda...</div>
         </div>
 
-        <!-- Real vaqt xabarlar -->
+        <!-- Xabarlar -->
         <div class="section">
-            <h3>🔔 So'nggi Real Vaqt Xabarlar</h3>
+            <h3>🔔 Real Vaqt Xabarlar</h3>
             <div class="alert-box" id="alerts">Hozircha xabarlar yo'q...</div>
         </div>
     </div>
@@ -105,8 +170,51 @@
         let audioCtx = null;
         let alarmInterval = null;
         let targetAlarmTime = null;
+        let customAudio = null;
 
-        // Soat va Budilnikni tekshirib turish
+        function unlockAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function saveSoundChoice() {
+            const type = document.getElementById('alarmSoundType').value;
+            document.getElementById('mp3UploadDiv').style.display = (type === 'custom') ? 'block' : 'none';
+            localStorage.setItem('soundType', type);
+        }
+
+        function handleMp3Upload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    localStorage.setItem('customMp3', e.target.result);
+                    customAudio = new Audio(e.target.result);
+                    customAudio.loop = true;
+                    document.getElementById('mp3Status').innerText = "MP3 muvaffaqiyatli yuklandi!";
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        window.onload = () => {
+            const savedType = localStorage.getItem('soundType');
+            if (savedType) {
+                document.getElementById('alarmSoundType').value = savedType;
+                document.getElementById('mp3UploadDiv').style.display = (savedType === 'custom') ? 'block' : 'none';
+            }
+            const savedMp3 = localStorage.getItem('customMp3');
+            if (savedMp3) {
+                customAudio = new Audio(savedMp3);
+                customAudio.loop = true;
+                document.getElementById('mp3Status').innerText = "Saqlangan MP3 tayyor!";
+            }
+        };
+
         setInterval(() => {
             const now = new Date();
             const timeString = now.toTimeString().split(' ')[0].substring(0, 5);
@@ -114,25 +222,64 @@
 
             if (targetAlarmTime && timeString === targetAlarmTime) {
                 targetAlarmTime = null;
-                document.getElementById('alarmStatus').innerText = "Budilnik vaqti bo'ldi!";
-                playSiren();
-                triggerFullScreenAlert();
+                document.getElementById('alarmStatus').innerText = "Vaqt bo'ldi!";
+                playAlarmSound();
+                triggerFullScreenAlert("Shaxsiy budilnik vaqti bo'ldi!");
             }
         }, 1000);
 
-        socket.on('connect', () => {
+        socket.on('telegram_status', (data) => {
             const statusEl = document.getElementById('status');
-            statusEl.innerText = "Serverga ulandi (Faol)";
-            statusEl.className = "status connected";
+            document.getElementById('accountCount').innerText = `Ulangan raqamlar: ${data.count} / 3`;
+            if (data.connected) {
+                statusEl.innerText = `Telegram Ulangan (${data.count} ta raqam)`;
+                statusEl.className = "status connected";
+                if (data.count >= 3) {
+                    document.getElementById('authSection').style.display = 'none';
+                }
+            } else {
+                statusEl.innerText = "Telegram Ulanmagan";
+                statusEl.className = "status disconnected";
+            }
         });
 
-        socket.on('disconnect', () => {
-            const statusEl = document.getElementById('status');
-            statusEl.innerText = "Aloqa uzildi!";
-            statusEl.className = "status disconnected";
-        });
+        async function sendPhone() {
+            unlockAudio();
+            const phone = document.getElementById('phoneInput').value;
+            if (!phone) return alert("Raqamni kiriting!");
+            const res = await fetch('/api/auth/send-code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert("SMS kod yuborildi!");
+                document.getElementById('stepPhone').style.display = 'none';
+                document.getElementById('stepCode').style.display = 'block';
+            } else {
+                alert("Xatolik: " + data.message);
+            }
+        }
 
-        // Kanallar ro'yxatini yangilash
+        async function sendCode() {
+            const code = document.getElementById('codeInput').value;
+            const password = document.getElementById('passwordInput').value;
+            if (!code) return alert("Kodni kiriting!");
+            const res = await fetch('/api/auth/verify-code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code, password })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert("Muvaffaqiyatli ulandi!");
+                location.reload();
+            } else {
+                alert("Xatolik: " + data.message);
+            }
+        }
+
         socket.on('channels_updated', (channels) => {
             const listDiv = document.getElementById('channelList');
             listDiv.innerHTML = '';
@@ -141,64 +288,55 @@
             });
         });
 
-        // Telegramdan xabar kelganda
         socket.on('telegram_alarm', (data) => {
             const alertsDiv = document.getElementById('alerts');
             alertsDiv.innerHTML = `<b>[${data.date}] ID: ${data.chatId}</b><br>${data.text}<hr>` + alertsDiv.innerHTML;
-            playSiren();
-            triggerFullScreenAlert();
+            playAlarmSound();
+            triggerFullScreenAlert(`<b>Kanal ID: ${data.chatId}</b><br>${data.text}`);
         });
 
         function setPersonalAlarm() {
             const val = document.getElementById('alarmTime').value;
             if (!val) return alert("Vaqtni tanlang!");
             targetAlarmTime = val;
-            document.getElementById('alarmStatus').innerText = `Budilnik ${val} ga sozlandi!`;
+            document.getElementById('alarmStatus').innerText = `Budilnik ${val} ga sozlandi`;
         }
 
-        // Tez va baland siren ovozi (Web Audio API)
-        function playSiren() {
-            if (alarmInterval) return;
+        function playAlarmSound() {
+            unlockAudio();
+            const soundType = document.getElementById('alarmSoundType').value;
 
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (soundType === 'custom' && customAudio) {
+                customAudio.currentTime = 0;
+                customAudio.play().catch(e => console.log(e));
+            } else {
+                if (alarmInterval) return;
+                let pitchUp = true;
+                let freq = 600;
+
+                alarmInterval = setInterval(() => {
+                    try {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                        gain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.start();
+                        osc.stop(audioCtx.currentTime + 0.25);
+
+                        if (pitchUp) {
+                            freq += 120;
+                            if (freq > 1400) pitchUp = false;
+                        } else {
+                            freq -= 120;
+                            if (freq < 600) pitchUp = true;
+                        }
+                    } catch(e) {}
+                }, 180);
             }
-
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-
-            let pitchUp = true;
-            let freq = 500;
-
-            alarmInterval = setInterval(() => {
-                try {
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
-                    
-                    osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-                    
-                    gain.gain.setValueAtTime(0.8, audioCtx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-
-                    osc.start();
-                    osc.stop(audioCtx.currentTime + 0.2);
-
-                    if (pitchUp) {
-                        freq += 80;
-                        if (freq > 1100) pitchUp = false;
-                    } else {
-                        freq -= 80;
-                        if (freq < 500) pitchUp = true;
-                    }
-                } catch(e) {
-                    console.log(e);
-                }
-            }, 200);
         }
 
         function stopAlarm() {
@@ -206,17 +344,23 @@
                 clearInterval(alarmInterval);
                 alarmInterval = null;
             }
-            document.getElementById('mainContainer').style.border = "none";
+            if (customAudio) {
+                customAudio.pause();
+                customAudio.currentTime = 0;
+            }
+            document.getElementById('popupModal').style.display = 'none';
+            document.getElementById('mainContainer').style.border = "1px solid rgba(255,255,255,0.08)";
         }
 
         function testAlarm() {
-            playSiren();
-            triggerFullScreenAlert();
+            playAlarmSound();
+            triggerFullScreenAlert("Sinov ovozi ishga tushdi!");
         }
 
-        function triggerFullScreenAlert() {
-            const container = document.getElementById('mainContainer');
-            container.style.border = "4px solid #ef4444";
+        function triggerFullScreenAlert(text) {
+            document.getElementById('popupText').innerHTML = text;
+            document.getElementById('popupModal').style.display = 'flex';
+            
             if (document.documentElement.requestFullscreen) {
                 document.documentElement.requestFullscreen().catch(err => {});
             }

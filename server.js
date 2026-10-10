@@ -1,6 +1,5 @@
 const { TelegramClient } = require("telegram");
 const { StringSession } = require("telegram/sessions");
-const input = require("input");
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -8,8 +7,9 @@ const { Server } = require("socket.io");
 const apiId = 33806129;
 const apiHash = "061b0993fa0dc48c73ac2a924e5d8480";
 
-// Dastlabki monitored chatlar
 let monitoredChats = [-1001552009111, -1002029590547, -1003741592592, -1001974731753];
+let clients = [];
+let tempClient = null;
 
 const app = express();
 app.use(express.json());
@@ -18,7 +18,13 @@ const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.static(__dirname));
 
-// Kanallarni olish va qo'shish/o'chirish uchun API
+process.on('uncaughtException', (err) => {
+    console.log('Kutilmagan xatolik (server ishda qoladi):', err.message);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.log("Ushlanmagan va'da rad etishi:", reason);
+});
+
 app.get('/api/channels', (req, res) => {
   res.json(monitoredChats);
 });
@@ -39,49 +45,86 @@ app.delete('/api/channels/:id', (req, res) => {
   res.json(monitoredChats);
 });
 
-async function startTelegram() {
-  const client = new TelegramClient(new StringSession(""), apiId, apiHash, {
-    connectionRetries: 5,
-  });
+let savedPhone = '';
+let savedCode = '';
+let savedPassword = '';
 
-  console.log("Telegramga ulanish boshlandi...");
-  await client.start({
-    phoneNumber: async () => await input.text("Telefon raqamingiz (+998...): "),
-    password: async () => await input.text("2-bosqichli parol (agar bo'lsa): "),
-    phoneCode: async () => await input.text("Telegramdan kelgan kodni kiriting: "),
-    onError: (err) => console.log(err),
-  });
+app.post('/api/auth/send-code', async (req, res) => {
+  const { phone } = req.body;
+  if (clients.length >= 3) {
+    return res.status(400).json({ success: false, message: "Maksimal 3 ta raqam ulangan!" });
+  }
+  savedPhone = phone;
+  try {
+    tempClient = new TelegramClient(new StringSession(""), apiId, apiHash, { 
+      connectionRetries: 10,
+      timeout: 30000 
+    });
+    await tempClient.connect();
+    const result = await tempClient.sendCode({ apiId, apiHash }, phone);
+    res.json({ success: true, message: "SMS kod yuborildi!" });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
 
-  console.log("✅ Telegramga muvaffaqiyatli ulandi! Kanallar kuzatilmoqda...");
+app.post('/api/auth/verify-code', async (req, res) => {
+  const { code, password } = req.body;
+  savedCode = code;
+  savedPassword = password || "";
 
-  client.addEventHandler(async (event) => {
-    const message = event.message;
-    if (message && message.peerId) {
-      let chatId = null;
-      if (message.peerId.channelId) {
-        chatId = Number("-100" + message.peerId.channelId.toString());
-      } else if (message.peerId.chatId) {
-        chatId = Number("-" + message.peerId.chatId.toString());
+  try {
+    await tempClient.start({
+      phoneNumber: async () => savedPhone,
+      phoneCode: async () => savedCode,
+      password: async () => savedPassword,
+      onError: (err) => console.log(err),
+    });
+
+    clients.push({ phone: savedPhone, client: tempClient });
+    setupEventHandlers(tempClient);
+    
+    io.emit('telegram_status', { connected: true, count: clients.length });
+    res.json({ success: true, message: "Raqam muvaffaqiyatli ulandi!" });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+function setupEventHandlers(activeClient) {
+  console.log("✅ Telegram sessiyasi qo'shildi va kuzatilmoqda...");
+
+  activeClient.addEventHandler(async (event) => {
+    try {
+      const message = event.message;
+      if (message && message.peerId) {
+        let chatId = null;
+        if (message.peerId.channelId) {
+          chatId = Number("-100" + message.peerId.channelId.toString());
+        } else if (message.peerId.chatId) {
+          chatId = Number("-" + message.peerId.chatId.toString());
+        }
+
+        if (monitoredChats.includes(chatId)) {
+          console.log(`🚨 Yangi xabar! Kanal ID: ${chatId}`);
+          io.emit("telegram_alarm", {
+            chatId: chatId,
+            text: message.message || "[Media / Rasm / Video]",
+            date: new Date().toLocaleTimeString(),
+          });
+        }
       }
-
-      if (monitoredChats.includes(chatId)) {
-        console.log(`🚨 Yangi xabar keldi! Kanal ID: ${chatId}`);
-        io.emit("telegram_alarm", {
-          chatId: chatId,
-          text: message.message || "[Media / Rasm / Video]",
-          date: new Date().toLocaleTimeString(),
-        });
-      }
+    } catch (e) {
+      console.log("Xabarni o'qishda xatolik:", e.message);
     }
   });
 }
 
 io.on("connection", (socket) => {
-  console.log("📱 Ilova ulandi!");
   socket.emit('channels_updated', monitoredChats);
+  socket.emit('telegram_status', { connected: clients.length > 0, count: clients.length });
 });
 
 server.listen(3000, () => {
-  console.log("Server 3000-portda ishlamoqda...");
-  startTelegram();
+  console.log("Server 3000-portda ultra-tez rejimda ishlamoqda...");
 });
