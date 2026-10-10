@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mukammal Telegram Alarm & Budilnik</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body {
+            background-color: #0b0f19;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: #1e293b;
+            padding: 25px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+        }
+        h1 { font-size: 22px; margin-bottom: 5px; color: #38bdf8; }
+        .clock { font-size: 42px; font-weight: bold; margin: 15px 0; color: #facc15; }
+        .status { padding: 8px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; font-size: 14px; }
+        .connected { background: #065f46; color: #34d399; }
+        .disconnected { background: #7f1d1d; color: #f87171; }
+        
+        .section { background: #334155; padding: 12px; border-radius: 12px; margin-top: 15px; text-align: left; }
+        .section h3 { margin: 0 0 8px 0; font-size: 15px; color: #38bdf8; }
+        
+        input, select {
+            width: calc(100% - 16px);
+            padding: 10px;
+            background: #1e293b;
+            border: 1px solid #475569;
+            color: white;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 8px;
+            transition: 0.2s;
+        }
+        .btn:hover { background: #dc2626; }
+        .btn-blue { background: #3b82f6; }
+        .btn-blue:hover { background: #2563eb; }
+        .btn-green { background: #10b981; }
+        
+        .channel-list { max-height: 100px; overflow-y: auto; font-size: 13px; }
+        .channel-item { display: flex; justify-content: space-between; background: #1e293b; padding: 5px 10px; margin-bottom: 4px; border-radius: 5px; align-items: center; }
+        .del-btn { background: #ef4444; border: none; color: white; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+
+        .alert-box { background: #1e293b; padding: 10px; border-radius: 8px; margin-top: 10px; max-height: 120px; overflow-y: auto; font-size: 13px; text-align: left; }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="mainContainer">
+        <h1>🚨 Telegram Alarm & Budilnik</h1>
+        <div id="status" class="status disconnected">Ulanmoqda...</div>
+        
+        <div class="clock" id="clock">00:00:00</div>
+        
+        <button class="btn" onclick="stopAlarm()">SIGNALNI O'CHIRISH (STOP)</button>
+        <button class="btn btn-blue" onclick="testAlarm()">Test Sirena (Sinov)</button>
+
+        <!-- Oddiy Budilnik Sozlamasi -->
+        <div class="section">
+            <h3>⏰ Shaxsiy Budilnik Qo'shish</h3>
+            <input type="time" id="alarmTime">
+            <button class="btn btn-green" onclick="setPersonalAlarm()">Budilnikni Yoqish</button>
+            <div id="alarmStatus" style="font-size: 12px; margin-top: 5px; color: #34d399;"></div>
+        </div>
+
+        <!-- Kanal Boshqaruvi -->
+        <div class="section">
+            <h3>📡 Monitored Kanallar</h3>
+            <input type="text" id="newChannelId" placeholder="Kanal ID kiriting (masalan: -100...)">
+            <button class="btn btn-blue" onclick="addChannel()">Kanal Qo'shish</button>
+            <div class="channel-list" id="channelList">yuklanmoqda...</div>
+        </div>
+
+        <!-- Real vaqt xabarlar -->
+        <div class="section">
+            <h3>🔔 So'nggi Real Vaqt Xabarlar</h3>
+            <div class="alert-box" id="alerts">Hozircha xabarlar yo'q...</div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let audioCtx = null;
+        let alarmInterval = null;
+        let targetAlarmTime = null;
+
+        // Soat va Budilnikni tekshirib turish
+        setInterval(() => {
+            const now = new Date();
+            const timeString = now.toTimeString().split(' ')[0].substring(0, 5);
+            document.getElementById('clock').innerText = now.toLocaleTimeString();
+
+            if (targetAlarmTime && timeString === targetAlarmTime) {
+                targetAlarmTime = null;
+                document.getElementById('alarmStatus').innerText = "Budilnik vaqti bo'ldi!";
+                playSiren();
+                triggerFullScreenAlert();
+            }
+        }, 1000);
+
+        socket.on('connect', () => {
+            const statusEl = document.getElementById('status');
+            statusEl.innerText = "Serverga ulandi (Faol)";
+            statusEl.className = "status connected";
+        });
+
+        socket.on('disconnect', () => {
+            const statusEl = document.getElementById('status');
+            statusEl.innerText = "Aloqa uzildi!";
+            statusEl.className = "status disconnected";
+        });
+
+        // Kanallar ro'yxatini yangilash
+        socket.on('channels_updated', (channels) => {
+            const listDiv = document.getElementById('channelList');
+            listDiv.innerHTML = '';
+            channels.forEach(id => {
+                listDiv.innerHTML += `<div class="channel-item"><span>${id}</span> <button class="del-btn" onclick="deleteChannel(${id})">O'chirish</button></div>`;
+            });
+        });
+
+        // Telegramdan xabar kelganda
+        socket.on('telegram_alarm', (data) => {
+            const alertsDiv = document.getElementById('alerts');
+            alertsDiv.innerHTML = `<b>[${data.date}] ID: ${data.chatId}</b><br>${data.text}<hr>` + alertsDiv.innerHTML;
+            playSiren();
+            triggerFullScreenAlert();
+        });
+
+        function setPersonalAlarm() {
+            const val = document.getElementById('alarmTime').value;
+            if (!val) return alert("Vaqtni tanlang!");
+            targetAlarmTime = val;
+            document.getElementById('alarmStatus').innerText = `Budilnik ${val} ga sozlandi!`;
+        }
+
+        // Tez va baland siren ovozi (Web Audio API)
+        function playSiren() {
+            if (alarmInterval) return;
+
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            let pitchUp = true;
+            let freq = 500;
+
+            alarmInterval = setInterval(() => {
+                try {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                    
+                    gain.gain.setValueAtTime(0.8, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.2);
+
+                    if (pitchUp) {
+                        freq += 80;
+                        if (freq > 1100) pitchUp = false;
+                    } else {
+                        freq -= 80;
+                        if (freq < 500) pitchUp = true;
+                    }
+                } catch(e) {
+                    console.log(e);
+                }
+            }, 200);
+        }
+
+        function stopAlarm() {
+            if (alarmInterval) {
+                clearInterval(alarmInterval);
+                alarmInterval = null;
+            }
+            document.getElementById('mainContainer').style.border = "none";
+        }
+
+        function testAlarm() {
+            playSiren();
+            triggerFullScreenAlert();
+        }
+
+        function triggerFullScreenAlert() {
+            const container = document.getElementById('mainContainer');
+            container.style.border = "4px solid #ef4444";
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(err => {});
+            }
+        }
+
+        async function addChannel() {
+            const chatId = document.getElementById('newChannelId').value;
+            if (!chatId) return;
+            await fetch('/api/channels', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId })
+            });
+            document.getElementById('newChannelId').value = '';
+        }
+
+        async function deleteChannel(chatId) {
+            await fetch(`/api/channels/${chatId}`, { method: 'DELETE' });
+        }
+    </script>
+</body>
+</html>
