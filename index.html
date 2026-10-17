@@ -233,7 +233,7 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-    const socket = io();
+    const socket = io({ transports: ['websocket', 'polling'] });
     let currentLang = 'uz';
 
     const translations = {
@@ -420,22 +420,7 @@
         playAlarmSound();
         document.getElementById('alarmTextContent').innerText = `Kanal: ${data.chatId}\n\n${data.text}`;
         document.getElementById('alarmModal').style.display = 'flex';
-
-        if (Notification.permission === "granted") {
-            navigator.serviceWorker.ready.then(reg => {
-                reg.showNotification(`🚨 Yangi xabar!`, {
-                    body: data.text,
-                    icon: 'https://cdn-icons-png.flaticon.com/512/565/565547.png',
-                    vibrate: [500, 200, 500, 200, 500],
-                    requireInteraction: true
-                });
-            });
-        }
     });
-
-    if (Notification.permission !== "granted") {
-        Notification.requestPermission();
-    }
 
     async function sendCode() {
         const phone = document.getElementById('phoneNumber').value;
