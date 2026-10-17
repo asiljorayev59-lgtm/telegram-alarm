@@ -187,7 +187,7 @@
     </div>
 
     <div id="sessionDropdownPanel">
-        <h3 id="uiNumTitle">Raqamlar</h3>
+        <h3 id="uiNumTitle">Raqamlar (Max 3)</h3>
         <div id="sessionList"></div>
         
         <div id="authBox" style="margin-top: 6px;">
@@ -241,7 +241,7 @@
             title: "🚨 Alarm Pro",
             notConnected: "Telegram Ulanmagan (0)",
             connected: "Telegram Ulangan",
-            numTitle: "Ulangan Raqamlar",
+            numTitle: "Ulangan Raqamlar (Max 3)",
             sendCode: "Kod yuborish",
             verify: "Tasdiqlash",
             stop: "🔴 TO'XTATISH",
@@ -258,7 +258,7 @@
             title: "🚨 Alarm Pro",
             notConnected: "Telegram не подключен (0)",
             connected: "Telegram Подключен",
-            numTitle: "Номера",
+            numTitle: "Номера (Макс 3)",
             sendCode: "Отправить код",
             verify: "Подтвердить",
             stop: "🔴 ОСТАНОВИТЬ",
@@ -311,6 +311,7 @@
             customAudioElement.loop = true;
             document.getElementById('alarmSoundSelect').value = 'custom';
             document.getElementById('mp3FileInput').style.display = 'block';
+            document.getElementById('mp3Status').innerText = '✅ MP3 tayyor';
         }
     });
 
@@ -328,19 +329,23 @@
             fileInput.style.display = 'none';
             customAudioElement = null;
             localStorage.removeItem('custom_alarm_mp3');
+            document.getElementById('mp3Status').innerText = '';
         }
     }
 
     function loadCustomMp3(input) {
         if (input.files && input.files[0]) {
             const file = input.files[0];
+            const fileURL = URL.createObjectURL(file);
+            customAudioElement = new Audio(fileURL);
+            customAudioElement.loop = true;
+            
             const reader = new FileReader();
             reader.onload = function(e) {
                 localStorage.setItem('custom_alarm_mp3', e.target.result);
-                customAudioElement = new Audio(e.target.result);
-                customAudioElement.loop = true;
             };
             reader.readAsDataURL(file);
+            document.getElementById('mp3Status').innerText = '✅ MP3 yuklandi!';
         }
     }
 
@@ -393,7 +398,7 @@
         const btn = document.getElementById('connectionStatusBtn');
         const t = translations[currentLang];
         if (data.connected) {
-            btn.innerText = `${t.connected} (${data.count})`;
+            btn.innerText = `${t.connected} (${data.count} / 3)`;
             btn.classList.add('connected');
         } else {
             btn.innerText = t.notConnected;
